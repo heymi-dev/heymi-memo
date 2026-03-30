@@ -119,7 +119,7 @@ class MemoWindow:
             pass
 
     def setup_ui(self):
-        self.win.minsize(200, 150)
+        self.win.minsize(200, 100)
         self.win.resizable(True, True)
 
         # ── 툴바 ──
@@ -127,69 +127,81 @@ class MemoWindow:
         self.toolbar.pack(fill="x", side="top")
         self.toolbar.pack_propagate(False)
 
-        TB_FONT = (ff(), 11)
-        TB_PAD = 5
+        TB_PAD = 4
+
+        # 아이콘 로드 (Flaticon uicon PNG → 20px 리사이즈)
+        self._icons = {}
+        icon_dir = _get_resource_path("icons") if getattr(sys, 'frozen', False) else os.path.join(SCRIPT_DIR, "icons")
+        try:
+            from PIL import Image as PILImage, ImageTk
+            for name in ["plus", "pin", "bold", "list", "number", "todo", "toggle", "color", "alpha", "delete", "arrange", "clear"]:
+                try:
+                    pil_img = PILImage.open(os.path.join(icon_dir, f"{name}.png"))
+                    pil_img = pil_img.resize((20, 20), PILImage.LANCZOS)
+                    self._icons[name] = ImageTk.PhotoImage(pil_img)
+                except Exception:
+                    self._icons[name] = None
+        except ImportError:
+            for name in ["plus", "pin", "bold", "list", "number", "todo", "toggle", "color", "alpha", "delete", "arrange", "clear"]:
+                try:
+                    img = tk.PhotoImage(file=os.path.join(icon_dir, f"{name}.png"))
+                    self._icons[name] = img.subsample(3, 3)
+                except Exception:
+                    self._icons[name] = None
+
+        def icon_label(parent, name, **kw):
+            ico = self._icons.get(name)
+            if ico:
+                return tk.Label(parent, image=ico, cursor="hand2", padx=3, pady=2, **kw)
+            return tk.Label(parent, text=name, cursor="hand2", font=(ff(), 10), padx=3, pady=2, **kw)
 
         # 왼쪽: + 새 메모
-        self.btn_new = tk.Label(
-            self.toolbar, text="+", cursor="hand2",
-            font=(ff(), 11, "bold"), padx=TB_PAD
-        )
+        self.btn_new = icon_label(self.toolbar, "plus")
         self.btn_new.pack(side="left", padx=(8, 0))
         self.btn_new.bind("<Button-1>", lambda e: self.manager.new_memo())
 
         # 왼쪽: 고정 (압정)
-        self.btn_pin = tk.Label(
-            self.toolbar, text="📌", cursor="hand2",
-            font=("Segoe UI Emoji", 9), padx=TB_PAD
-        )
+        self.btn_pin = icon_label(self.toolbar, "pin")
         self.btn_pin.pack(side="left")
         self.btn_pin.bind("<Button-1>", lambda e: self.toggle_pin())
 
         # 왼쪽: B 볼드
-        self.btn_bold = tk.Label(
-            self.toolbar, text="B", cursor="hand2",
-            font=(ff(), 11, "bold"), padx=TB_PAD
-        )
+        self.btn_bold = icon_label(self.toolbar, "bold")
         self.btn_bold.pack(side="left")
         self.btn_bold.bind("<Button-1>", lambda e: self.toggle_bold())
 
-        # 왼쪽: • 글머리 기호
-        self.btn_bullet = tk.Label(
-            self.toolbar, text="•", cursor="hand2",
-            font=TB_FONT, padx=TB_PAD
-        )
+        # 왼쪽: 글머리 기호
+        self.btn_bullet = icon_label(self.toolbar, "list")
         self.btn_bullet.pack(side="left")
         self.btn_bullet.bind("<Button-1>", lambda e: self.insert_bullet())
 
-        # 왼쪽: 1. 번호 목록
-        self.btn_number = tk.Label(
-            self.toolbar, text="1.", cursor="hand2",
-            font=TB_FONT, padx=TB_PAD
-        )
+        # 왼쪽: 번호 목록
+        self.btn_number = icon_label(self.toolbar, "number")
         self.btn_number.pack(side="left")
         self.btn_number.bind("<Button-1>", lambda e: self.insert_number())
 
-        # 오른쪽: 삭제 (휴지통)
-        self.btn_delete = tk.Label(
-            self.toolbar, text="🗑", cursor="hand2",
-            font=("Segoe UI Emoji", 9), padx=TB_PAD
-        )
+        # 왼쪽: 할일 목록
+        self.btn_todo = icon_label(self.toolbar, "todo")
+        self.btn_todo.pack(side="left")
+        self.btn_todo.bind("<Button-1>", lambda e: self.insert_todo())
+
+        # 왼쪽: 토글 목록
+        self.btn_toggle = icon_label(self.toolbar, "toggle")
+        self.btn_toggle.pack(side="left")
+        self.btn_toggle.bind("<Button-1>", lambda e: self.insert_toggle())
+
+        # 오른쪽: 삭제
+        self.btn_delete = icon_label(self.toolbar, "delete")
         self.btn_delete.pack(side="right")
         self.btn_delete.bind("<Button-1>", lambda e: self.delete_memo())
 
         # 오른쪽: 투명도
-        self.btn_alpha = tk.Label(
-            self.toolbar, text="◐", cursor="hand2",
-            font=TB_FONT, padx=TB_PAD
-        )
+        self.btn_alpha = icon_label(self.toolbar, "alpha")
         self.btn_alpha.pack(side="right")
         self.btn_alpha.bind("<Button-1>", lambda e: self.cycle_alpha())
 
-        # 오른쪽: ● 색상
-        self.btn_color = tk.Label(
-            self.toolbar, text="●", cursor="hand2",
-            font=TB_FONT, padx=TB_PAD
+        # 오른쪽: 색상
+        self.btn_color = icon_label(self.toolbar, "color"
         )
         self.btn_color.pack(side="right")
         self.btn_color.bind("<Button-1>", lambda e: self.cycle_color())
@@ -198,8 +210,9 @@ class MemoWindow:
         self.text = tk.Text(
             self.win, wrap="word", bd=0, padx=14, pady=10,
             insertbackground=TEXT_COLOR, undo=True,
-            font=(ff(), FONT_SIZE), relief="flat",
-            highlightthickness=0, spacing1=2, spacing3=5
+            font=(ff(), self.data.get("font_size", FONT_SIZE)), relief="flat",
+            highlightthickness=0, spacing1=2, spacing3=5,
+            tabs=("2c",)
         )
         self.text.pack(fill="both", expand=True)
         # 기본 폰트를 명시적으로 설정 (입력 시 깜빡임 방지)
@@ -207,8 +220,16 @@ class MemoWindow:
         self.text.configure(font=default_font)
         self.text.tag_configure("sel", font=default_font)
         # 볼드 태그 설정
-        self.text.tag_configure("bold", font=(ff(), FONT_SIZE, "bold"))
+        self.text.tag_configure("bold", font=(ff(), self.data.get("font_size", FONT_SIZE), "bold"))
+        self.text.tag_configure("done", overstrike=True, foreground="#999")
+        self.text.tag_configure("check_done", foreground="#888")
         self.text.bind("<Control-b>", lambda e: self.toggle_bold())
+        self.text.bind("<Control-plus>", lambda e: self._zoom(1))
+        self.text.bind("<Control-equal>", lambda e: self._zoom(1))
+        self.text.bind("<Control-minus>", lambda e: self._zoom(-1))
+        self.win.bind("<Control-plus>", lambda e: self._zoom(1))
+        self.win.bind("<Control-equal>", lambda e: self._zoom(1))
+        self.win.bind("<Control-minus>", lambda e: self._zoom(-1))
         self.text.bind("<Control-y>", lambda e: self._redo())
         self.text.bind("<Control-Shift-z>", lambda e: self._redo())
 
@@ -219,6 +240,7 @@ class MemoWindow:
             self.text.insert("1.0", self.data.get("text", ""))
             self.text.config(fg=TEXT_COLOR)
             self._restore_bold_ranges()
+            self._restore_done_lines()
 
         self.win.bind("<MouseWheel>", lambda e: "break")
         self.text.bind("<Return>", self._on_return)
@@ -226,6 +248,7 @@ class MemoWindow:
         self.text.bind("<FocusOut>", self._on_focus_out)
         self.text.bind("<FocusOut>", lambda e: (self._update_title(), self._update_date_label(), self.manager.refresh_list()), add="+")
         self.text.bind("<<Modified>>", self.on_text_changed)
+        self.text.bind("<Button-1>", self._on_text_click, add="+")
 
         # ── 하단 날짜 ──
         self.footer = tk.Frame(self.win, height=20)
@@ -239,6 +262,43 @@ class MemoWindow:
         self.date_label.pack(fill="x")
         self._update_date_label()
         self._update_title()
+
+    def _on_text_click(self, event):
+        """텍스트 클릭 시 ○↔● 또는 ▶↔▼ 토글"""
+        try:
+            idx = self.text.index(f"@{event.x},{event.y}")
+            line = idx.split(".")[0]
+            col = int(idx.split(".")[1])
+            line_text = self.text.get(f"{line}.0", f"{line}.end")
+            if col <= 1:
+                if line_text.startswith("○ "):
+                    # 미완료 → 완료: ✔ + 취소선 + 회색
+                    self.text.delete(f"{line}.0", f"{line}.1")
+                    self.text.insert(f"{line}.0", "✓")
+                    self.text.tag_add("check_done", f"{line}.0", f"{line}.1")
+                    self.text.tag_add("done", f"{line}.2", f"{line}.end")
+                    self.on_text_changed(None)
+                elif line_text.startswith("✓ "):
+                    # 완료 → 미완료: ○ + 취소선 제거
+                    self.text.delete(f"{line}.0", f"{line}.1")
+                    self.text.insert(f"{line}.0", "○")
+                    self.text.tag_remove("check_done", f"{line}.0", f"{line}.1")
+                    self.text.tag_remove("done", f"{line}.2", f"{line}.end")
+                    self.on_text_changed(None)
+                elif line_text.startswith("▶ "):
+                    # 펼치기: ▶→▼ + 하위 내용 보이기
+                    self.text.delete(f"{line}.0", f"{line}.1")
+                    self.text.insert(f"{line}.0", "▼")
+                    self._toggle_content(int(line), show=True)
+                    self.on_text_changed(None)
+                elif line_text.startswith("▼ "):
+                    # 접기: ▼→▶ + 하위 내용 숨기기
+                    self.text.delete(f"{line}.0", f"{line}.1")
+                    self.text.insert(f"{line}.0", "▶")
+                    self._toggle_content(int(line), show=False)
+                    self.on_text_changed(None)
+        except tk.TclError:
+            pass
 
     def _on_focus_in(self, event):
         if self.text.get("1.0", "end-1c") == PLACEHOLDER:
@@ -255,7 +315,7 @@ class MemoWindow:
 
     def _update_title(self):
         text = self.data.get("text", "").strip()
-        preview = text.split('\n')[0][:20] if text else "새 메모"
+        preview = text.split('\n')[0][:20] if text else "New Memo"
         pin = "📌 " if self.data.get("pinned") else ""
         new_title = f"{pin}{preview}"
         if self.win.title() != new_title:
@@ -291,7 +351,8 @@ class MemoWindow:
         dark_fg = "#CCCCCC"
         self.toolbar.config(bg=dark_bar)
         for btn in [self.btn_new, self.btn_delete, self.btn_pin,
-                     self.btn_bold, self.btn_bullet, self.btn_number]:
+                     self.btn_bold, self.btn_bullet, self.btn_number,
+                     self.btn_todo, self.btn_toggle]:
             btn.config(bg=dark_bar, fg=dark_fg)
 
         # 색상 버튼 = 다음 색상
@@ -326,6 +387,21 @@ class MemoWindow:
             self.data["y"] = self.win.winfo_y()
         except tk.TclError:
             pass
+
+    def _zoom(self, delta):
+        """Ctrl+/- 텍스트 크기 조절"""
+        current = self.text.cget("font")
+        try:
+            parts = self.text.tk.splitlist(current)
+            size = int(parts[1])
+        except Exception:
+            size = FONT_SIZE
+        new_size = max(6, min(30, size + delta))
+        self.text.config(font=(ff(), new_size))
+        self.text.tag_configure("bold", font=(ff(), new_size, "bold"))
+        self.data["font_size"] = new_size
+        self.manager.schedule_save()
+        return "break"
 
     def _redo(self):
         try:
@@ -374,6 +450,14 @@ class MemoWindow:
             idx = start[1]
         self.data["bold_ranges"] = ranges
 
+    def _restore_done_lines(self):
+        """✔ 로 시작하는 줄에 취소선 + 체크 색상 적용"""
+        content = self.text.get("1.0", "end-1c")
+        for i, line in enumerate(content.split("\n"), 1):
+            if line.startswith("✓ "):
+                self.text.tag_add("check_done", f"{i}.0", f"{i}.1")
+                self.text.tag_add("done", f"{i}.2", f"{i}.end")
+
     def _restore_bold_ranges(self):
         """저장된 볼드 태그 복원"""
         for r in self.data.get("bold_ranges", []):
@@ -389,11 +473,11 @@ class MemoWindow:
         line_text = self.text.get(f"{line}.0", f"{line}.end")
         # 빈 글머리/번호만 있으면 제거하고 끝
         if line_text.strip() in ("•", "") or re.match(r"^\d+\.\s*$", line_text):
-            if line_text.startswith("• ") or re.match(r"^\d+\.\s*$", line_text):
+            if line_text.startswith("● ") or re.match(r"^\d+\.\s*$", line_text):
                 self.text.delete(f"{line}.0", f"{line}.end")
                 return "break"
         # • 글머리 이어쓰기
-        if line_text.startswith("• "):
+        if line_text.startswith("● "):
             self.text.insert("insert", "\n• ")
             return "break"
         # 번호 이어쓰기
@@ -401,6 +485,20 @@ class MemoWindow:
         if m:
             next_num = int(m.group(1)) + 1
             self.text.insert("insert", f"\n{next_num}. ")
+            return "break"
+        # 토글 하위: 현재 줄이 ▼ 토글이면 들여쓰기 추가
+        if line_text.startswith("▼ "):
+            self.text.insert("insert", "\n  ")
+            return "break"
+        # 들여쓰기 유지
+        if line_text.startswith(("  ", "\t")):
+            indent = ""
+            for ch in line_text:
+                if ch in (" ", "\t"):
+                    indent += ch
+                else:
+                    break
+            self.text.insert("insert", f"\n{indent}")
             return "break"
         return None
 
@@ -417,15 +515,15 @@ class MemoWindow:
         """선택된 줄들에 • 글머리 기호 추가/제거"""
         lines = self._get_target_lines()
         # 전부 •이면 제거, 아니면 추가
-        all_bullet = all(self.text.get(f"{l}.0", f"{l}.end").startswith("• ") for l in lines)
+        all_bullet = all(self.text.get(f"{l}.0", f"{l}.end").startswith("● ") for l in lines)
         for line in lines:
             line_text = self.text.get(f"{line}.0", f"{line}.end")
             if all_bullet:
-                if line_text.startswith("• "):
+                if line_text.startswith("● "):
                     self.text.delete(f"{line}.0", f"{line}.2")
             else:
-                if not line_text.startswith("• "):
-                    self.text.insert(f"{line}.0", "• ")
+                if not line_text.startswith("● "):
+                    self.text.insert(f"{line}.0", "● ")
         self.on_text_changed(None)
 
     def insert_number(self):
@@ -456,12 +554,82 @@ class MemoWindow:
                 num += 1
         self.on_text_changed(None)
 
+    def insert_todo(self):
+        """선택된 줄들에 ○ 할일 추가/제거"""
+        lines = self._get_target_lines()
+        all_todo = all(
+            self.text.get(f"{l}.0", f"{l}.end").startswith(("○ ", "✓ "))
+            for l in lines
+        )
+        for line in lines:
+            line_text = self.text.get(f"{line}.0", f"{line}.end")
+            if all_todo:
+                if line_text.startswith("○ "):
+                    self.text.delete(f"{line}.0", f"{line}.2")
+                elif line_text.startswith("✓ "):
+                    self.text.delete(f"{line}.0", f"{line}.2")
+                    self.text.tag_remove("done", f"{line}.0", f"{line}.end")
+            else:
+                if not line_text.startswith(("○ ", "✓ ")):
+                    self.text.insert(f"{line}.0", "○ ")
+        self.on_text_changed(None)
+
+    def _toggle_content(self, header_line, show=True):
+        """토글 헤더 아래 들여쓴 줄들을 숨기기/보이기"""
+        tag = f"toggle_{header_line}"
+        if show:
+            # elide 태그 제거 → 보이기
+            self.text.tag_remove(tag, "1.0", "end")
+            return
+        # 하위 내용 찾기: 다음 줄부터 들여쓰기(탭/스페이스)된 줄까지
+        total = int(self.text.index("end-1c").split(".")[0])
+        start = None
+        end = None
+        for i in range(header_line + 1, total + 1):
+            lt = self.text.get(f"{i}.0", f"{i}.end")
+            if lt.startswith(("  ", "\t")):
+                if start is None:
+                    start = i
+                end = i
+            else:
+                break
+        if start and end:
+            self.text.tag_configure(tag, elide=True)
+            # 줄 끝의 개행 포함해서 숨기기
+            self.text.tag_add(tag, f"{start}.0", f"{end}.end+1c")
+
+    def insert_toggle(self):
+        """선택된 줄들에 ▶/▼ 토글 추가/토글"""
+        lines = self._get_target_lines()
+        all_toggle = all(
+            self.text.get(f"{l}.0", f"{l}.end").startswith(("▶ ", "▼ "))
+            for l in lines
+        )
+        for line in lines:
+            line_text = self.text.get(f"{line}.0", f"{line}.end")
+            if all_toggle:
+                if line_text.startswith("▶ ") or line_text.startswith("▼ "):
+                    self.text.delete(f"{line}.0", f"{line}.2")
+            else:
+                if line_text.startswith("▶ "):
+                    self.text.delete(f"{line}.0", f"{line}.2")
+                    self.text.insert(f"{line}.0", "▼ ")
+                elif line_text.startswith("▼ "):
+                    self.text.delete(f"{line}.0", f"{line}.2")
+                    self.text.insert(f"{line}.0", "▶ ")
+                else:
+                    self.text.insert(f"{line}.0", "▶ ")
+        self.on_text_changed(None)
+
     def toggle_pin(self):
         self.data["pinned"] = not self.data.get("pinned", False)
         self.apply_pin_state()
         self._update_title()
         self.manager.schedule_save()
         self.manager.refresh_list()
+        # 고정된 메모 → 리스트 맨 위로 스크롤
+        if self.data.get("pinned"):
+            self.manager.canvas.yview_moveto(0)
 
     def cycle_alpha(self):
         """투명도 순환: 100% → 80% → 60% → 40% → 100%"""
@@ -575,7 +743,7 @@ class MemoManager:
         self.root = tk.Tk()
         self.root.title(get_app_name())
         self.root.geometry("360x560")
-        self.root.minsize(340, 400)
+        self.root.minsize(340, 200)
         self.root.configure(bg="#1E1E1E")
         # ICO 파일로 아이콘 설정 (작업표시줄 + 타이틀바)
         self._ico_path = _ensure_icon()
@@ -591,8 +759,9 @@ class MemoManager:
         self.memo_windows = {}
         self._save_pending = False
         self._color_labels = self._load_color_labels()
-        self._collapsed_colors = set()
         self._color_order = self._load_color_order()
+        # 기본: 모든 색상 그룹 닫힌 상태
+        self._collapsed_colors = set(self._color_order)
 
         self.setup_ui()
         self.root.update_idletasks()
@@ -618,7 +787,7 @@ class MemoManager:
         top.pack(fill="x", padx=12, pady=(12, 4))
 
         self.title_label = tk.Label(
-            top, text=get_app_name(), bg="#1E1E1E", fg="#FFE066",
+            top, text=get_app_name(), bg="#1E1E1E", fg="#A78BFA",
             font=(ff(), 14, "bold"), cursor="hand2"
         )
         self.title_label.pack(side="left")
@@ -636,19 +805,36 @@ class MemoManager:
         self.btn_toggle_all.pack(side="left", padx=(6, 0))
         self.btn_toggle_all.bind("<Button-1>", lambda e: self._toggle_all_groups())
 
-        # 업데이트 버튼 (숨김 상태, 새 버전 있을 때만 표시)
-        self.btn_update = tk.Label(
-            top, text=f"v{VERSION}", bg="#1E1E1E", fg="#555",
-            font=(ff(), 8), padx=4
-        )
-        self.btn_update.pack(side="right", padx=(0, 4))
-
         tk.Button(
-            top, text="+ 새 메모", bg="#FFE066", fg="#333",
-            font=(ff(), 10, "bold"), bd=0, padx=14, pady=4,
-            cursor="hand2", activebackground="#FFD633",
+            top, text="+", bg="#A78BFA", fg="#0a0a0a",
+            font=(ff(), 12, "bold"), bd=0, padx=10, pady=2,
+            cursor="hand2", activebackground="#9061F9",
             command=self.new_memo
         ).pack(side="right")
+
+        # 정렬 버튼
+        self.btn_arrange = tk.Label(
+            top, text="▦", bg="#1E1E1E", fg="#888",
+            font=(ff(), 12), cursor="hand2", padx=6
+        )
+        self.btn_arrange.pack(side="right", padx=(0, 4))
+        self.btn_arrange.bind("<Button-1>", lambda e: self.arrange_memos())
+
+        # 빈 메모 일괄 삭제 버튼
+        try:
+            from PIL import Image as PILImage, ImageTk
+            icon_dir = _get_resource_path("icons") if getattr(sys, 'frozen', False) else os.path.join(SCRIPT_DIR, "icons")
+            pil_img = PILImage.open(os.path.join(icon_dir, "clear.png")).resize((16, 16), PILImage.LANCZOS)
+            self._clear_icon = ImageTk.PhotoImage(pil_img)
+            self.btn_clear = tk.Label(
+                top, image=self._clear_icon, bg="#1E1E1E", cursor="hand2", padx=4
+            )
+        except Exception:
+            self.btn_clear = tk.Label(
+                top, text="⊠", bg="#1E1E1E", fg="#888", font=(ff(), 10), cursor="hand2", padx=4
+            )
+        self.btn_clear.pack(side="right", padx=(0, 2))
+        self.btn_clear.bind("<Button-1>", lambda e: self.clear_empty_memos())
 
         sf = tk.Frame(self.root, bg="#1E1E1E")
         sf.pack(fill="x", padx=12, pady=(4, 8))
@@ -676,6 +862,15 @@ class MemoManager:
             lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
         self.canvas.bind_all("<MouseWheel>",
             lambda e: self.canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+        # 하단 버전 정보
+        footer = tk.Frame(self.root, bg="#1E1E1E")
+        footer.pack(fill="x", side="bottom")
+        self.btn_update = tk.Label(
+            footer, text=f"v{VERSION}", bg="#1E1E1E", fg="#555",
+            font=(ff(), 8), padx=8, pady=4
+        )
+        self.btn_update.pack(side="left")
 
     def schedule_save(self):
         if not self._save_pending:
@@ -779,6 +974,15 @@ class MemoManager:
         for d in filtered:
             cn = d.get("color", "yellow")
             groups.setdefault(cn, []).append(d)
+
+        # 그룹 내에서 고정 메모가 맨 위로 (pinned=0이 먼저, 수정일 최신순)
+        for cn in groups:
+            groups[cn].sort(key=lambda m: (0 if m.get("pinned") else 1, "9" if not m.get("modified") else m.get("modified")))
+            # 고정 먼저, 그 다음 수정일 역순
+            pinned_items = [m for m in groups[cn] if m.get("pinned")]
+            other_items = [m for m in groups[cn] if not m.get("pinned")]
+            other_items.sort(key=lambda m: m.get("modified", ""), reverse=True)
+            groups[cn] = pinned_items + other_items
 
         count = len(filtered)
         if not hasattr(self, '_color_headers'):
@@ -1047,6 +1251,105 @@ class MemoManager:
         entry.bind("<Return>", save)
         entry.bind("<FocusOut>", save)
         entry.bind("<Escape>", lambda e: entry.destroy())
+
+    def clear_empty_memos(self):
+        """텍스트가 비어있는 메모 일괄 삭제"""
+        empty = [d for d in self.memos_data if not d.get("text", "").strip()]
+        if not empty:
+            messagebox.showinfo("heymi memo", "No empty memos.")
+            return
+        if not messagebox.askyesno("heymi memo", f"Delete {len(empty)} empty memo(s)?"):
+            return
+        for d in empty:
+            mid = d["id"]
+            if mid in self.memo_windows:
+                self.memo_windows[mid].destroy()
+                del self.memo_windows[mid]
+        self.memos_data = [d for d in self.memos_data if d.get("text", "").strip()]
+        self._do_save()
+        self.refresh_list()
+
+    def arrange_memos(self):
+        """열린 메모들을 메인창이 있는 모니터에 2행 그리드로 꽉 차게 정렬"""
+        visible = [(w.data.get("color", "yellow"), w)
+                   for w in self.memo_windows.values()
+                   if w.win.winfo_viewable()]
+        if not visible:
+            return
+
+        # 색상별 정렬
+        color_order = self._color_order if hasattr(self, '_color_order') else COLOR_NAMES
+        visible.sort(key=lambda x: color_order.index(x[0]) if x[0] in color_order else 99)
+        memos = [w for _, w in visible]
+
+        # 메인창이 있는 모니터 감지
+        try:
+            monitors = []
+            def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
+                import ctypes.wintypes
+                rect = lprcMonitor[0]
+                monitors.append((rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top))
+                return 1
+            MONITORENUMPROC = ctypes.WINFUNCTYPE(
+                ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong,
+                ctypes.POINTER(ctypes.wintypes.RECT), ctypes.c_double)
+            ctypes.windll.user32.EnumDisplayMonitors(0, 0, MONITORENUMPROC(callback), 0)
+
+            main_cx = self.root.winfo_x() + self.root.winfo_width() // 2
+            main_cy = self.root.winfo_y() + self.root.winfo_height() // 2
+
+            # 메인창 중심이 있는 모니터 찾기
+            mon = None
+            for mx, my, mw, mh in monitors:
+                if mx <= main_cx < mx + mw and my <= main_cy < my + mh:
+                    mon = (mx, my, mw, mh)
+                    break
+            if not mon:
+                mon = monitors[0] if monitors else (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
+        except Exception:
+            mon = (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
+
+        mon_x, mon_y, mon_w, mon_h = mon
+        # 작업표시줄 높이 자동 감지
+        try:
+            from ctypes import wintypes
+            class APPBARDATA(ctypes.Structure):
+                _fields_ = [("cbSize", ctypes.c_uint), ("hWnd", ctypes.c_void_p),
+                            ("uCallbackMessage", ctypes.c_uint), ("uEdge", ctypes.c_uint),
+                            ("rc", wintypes.RECT), ("lParam", ctypes.c_long)]
+            abd = APPBARDATA()
+            abd.cbSize = ctypes.sizeof(APPBARDATA)
+            ctypes.windll.shell32.SHAppBarMessage(5, ctypes.byref(abd))  # ABM_GETTASKBARPOS
+            taskbar = abd.rc.bottom - abd.rc.top
+            if taskbar < 20:
+                taskbar = 48
+        except Exception:
+            taskbar = 48
+
+        # 2행 — 타이틀바 높이 고려해서 겹침 방지
+        rows = 2
+        cols = (len(memos) + rows - 1) // rows
+        try:
+            caption_h = ctypes.windll.user32.GetSystemMetrics(4)
+            border_h = ctypes.windll.user32.GetSystemMetrics(33)
+            frame_h = caption_h + border_h + 4  # 타이틀바 프레임 전체
+        except Exception:
+            frame_h = 31
+        total_h = mon_h - taskbar
+        # 전체 높이 = (memo_h + frame_h) * 2 = total_h
+        memo_h = (total_h // rows) - frame_h
+        memo_w = mon_w // cols
+
+        for i, w in enumerate(memos):
+            row = i % rows
+            col = i // rows
+            x = mon_x + col * memo_w
+            y = mon_y + row * (memo_h + frame_h)
+            w.win.geometry(f"{memo_w}x{memo_h}+{x}+{y}")
+            w.save_geometry()
+            w.save_geometry()
+
+        self.schedule_save()
 
     def _check_for_updates(self):
         """시작 시 GitHub에서 최신 버전 체크"""
