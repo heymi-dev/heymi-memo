@@ -1,4 +1,8 @@
 memos.json
+settings.json
+*.otf
+memo.py
+index.html
 color_labels.json
 color_order.json
 memo.ico
