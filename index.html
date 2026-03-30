@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ann's Memo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #2c2c2c;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  /* 상단 바 */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #444;
+    user-select: none;
+  }
+  .topbar h1 {
+    font-size: 18px; color: #fff; font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  .topbar-right { display: flex; gap: 8px; align-items: center; }
+
+  .btn-add {
+    width: 36px; height: 36px;
+    border: none; border-radius: 50%;
+    background: #ffcc02; color: #333;
+    font-size: 22px; font-weight: bold;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-add:hover { background: #ffd633; transform: scale(1.1); }
+
+  .btn-clear {
+    padding: 6px 14px; border: 1px solid #666; border-radius: 18px;
+    background: transparent; color: #999; font-size: 12px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-clear:hover { border-color: #e74c3c; color: #e74c3c; }
+
+  .memo-count { color: #888; font-size: 13px; }
+
+  /* 메모 보드 */
+  .board {
+    padding: 80px 24px 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* 메모 카드 */
+  .memo {
+    border-radius: 4px;
+    padding: 16px;
+    min-height: 160px;
+    display: flex; flex-direction: column;
+    box-shadow: 2px 3px 12px rgba(0,0,0,0.3);
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+    animation: popIn 0.25s ease-out;
+  }
+  .memo:hover {
+    transform: translateY(-2px);
+    box-shadow: 2px 5px 18px rgba(0,0,0,0.4);
+  }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .memo-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .memo-time {
+    font-size: 10px; opacity: 0.5; font-weight: 500;
+  }
+
+  .memo-actions {
+    display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s;
+  }
+  .memo:hover .memo-actions { opacity: 1; }
+
+  .memo-actions button {
+    width: 22px; height: 22px;
+    border: none; border-radius: 50%;
+    cursor: pointer; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .btn-color-cycle {
+    background: rgba(0,0,0,0.15); color: inherit;
+  }
+  .btn-color-cycle:hover { background: rgba(0,0,0,0.3); }
+
+  .btn-pin {
+    background: rgba(0,0,0,0.15); color: inherit;
+  }
+  .btn-pin:hover { background: rgba(0,0,0,0.3); }
+  .btn-pin.pinned { background: rgba(0,0,0,0.3); }
+
+  .btn-delete {
+    background: rgba(0,0,0,0.15); color: inherit;
+  }
+  .btn-delete:hover { background: rgba(220,53,69,0.8); color: #fff; }
+
+  .memo-content {
+    flex: 1;
+    font-size: 14px; line-height: 1.6;
+    outline: none;
+    word-break: break-word;
+    white-space: pre-wrap;
+    min-height: 80px;
+  }
+  .memo-content:empty::before {
+    content: '메모를 입력하세요...';
+    opacity: 0.35;
+  }
+
+  /* 색상 테마 */
+  .color-yellow  { background: #ffcc02; color: #333; }
+  .color-pink    { background: #ff8fab; color: #3a1a2a; }
+  .color-green   { background: #8ecf6d; color: #1a3a1a; }
+  .color-blue    { background: #7ec8e3; color: #1a2a3a; }
+  .color-purple  { background: #c4a1e0; color: #2a1a3a; }
+  .color-orange  { background: #ffb347; color: #3a2a1a; }
+  .color-white   { background: #f0f0f0; color: #333; }
+
+  /* 빈 상태 */
+  .empty-state {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; color: #666;
+    user-select: none;
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+  .empty-state .hint { font-size: 12px; color: #555; margin-top: 8px; }
+
+  /* 검색 */
+  .search-box {
+    padding: 6px 12px; border: 1px solid #555; border-radius: 18px;
+    background: #333; color: #ddd; font-size: 13px;
+    outline: none; width: 160px; transition: all 0.2s;
+  }
+  .search-box:focus { border-color: #ffcc02; width: 200px; }
+  .search-box::placeholder { color: #777; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Ann's Memo</h1>
+  <div class="topbar-right">
+    <span class="memo-count" id="memoCount"></span>
+    <input type="text" class="search-box" id="searchBox" placeholder="검색..." />
+    <button class="btn-clear" id="btnClear" title="전체 삭제">전체 삭제</button>
+    <button class="btn-add" id="btnAdd" title="새 메모 (Ctrl+N)">+</button>
+  </div>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="empty-state" id="emptyState" style="display:none;">
+  <div class="icon">+</div>
+  <p>메모가 없어요</p>
+  <div class="hint">+ 버튼 또는 Ctrl+N으로 새 메모</div>
+</div>
+
+<script>
+const COLORS = ['yellow','pink','green','blue','purple','orange','white'];
+const STORAGE_KEY = 'ann-memos';
+
+let memos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(memos));
+  updateCount();
+  toggleEmpty();
+}
+
+function updateCount() {
+  document.getElementById('memoCount').textContent = memos.length ? memos.length + '개' : '';
+}
+
+function toggleEmpty() {
+  document.getElementById('emptyState').style.display = memos.length ? 'none' : 'block';
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${mm}.${dd} ${hh}:${mi}`;
+}
+
+function createMemoEl(memo) {
+  const el = document.createElement('div');
+  el.className = `memo color-${memo.color}`;
+  el.dataset.id = memo.id;
+  if (memo.pinned) el.style.order = '-1';
+
+  el.innerHTML = `
+    <div class="memo-header">
+      <span class="memo-time">${formatTime(memo.created)}</span>
+      <div class="memo-actions">
+        <button class="btn-pin ${memo.pinned?'pinned':''}" title="고정">&#128204;</button>
+        <button class="btn-color-cycle" title="색상 변경">&#127912;</button>
+        <button class="btn-delete" title="삭제">&times;</button>
+      </div>
+    </div>
+    <div class="memo-content" contenteditable="true">${escapeHtml(memo.text)}</div>
+  `;
+
+  // 내용 수정
+  const content = el.querySelector('.memo-content');
+  content.addEventListener('input', () => {
+    memo.text = content.innerText;
+    save();
+  });
+
+  // 삭제
+  el.querySelector('.btn-delete').addEventListener('click', () => {
+    el.style.animation = 'none';
+    el.style.transition = 'all 0.2s';
+    el.style.opacity = '0';
+    el.style.transform = 'scale(0.8)';
+    setTimeout(() => {
+      memos = memos.filter(m => m.id !== memo.id);
+      save();
+      render();
+    }, 200);
+  });
+
+  // 색상 변경
+  el.querySelector('.btn-color-cycle').addEventListener('click', () => {
+    const idx = COLORS.indexOf(memo.color);
+    memo.color = COLORS[(idx + 1) % COLORS.length];
+    el.className = `memo color-${memo.color}`;
+    save();
+  });
+
+  // 고정
+  el.querySelector('.btn-pin').addEventListener('click', (e) => {
+    memo.pinned = !memo.pinned;
+    e.target.classList.toggle('pinned');
+    save();
+    render();
+  });
+
+  return el;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function render(filter = '') {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const filtered = memos
+    .filter(m => !filter || m.text.toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.created - a.created);
+
+  filtered.forEach(m => board.appendChild(createMemoEl(m)));
+  updateCount();
+  toggleEmpty();
+}
+
+function addMemo() {
+  const memo = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    text: '',
+    color: COLORS[Math.floor(Math.random() * 4)], // 앞 4색 랜덤
+    created: Date.now(),
+    pinned: false
+  };
+  memos.unshift(memo);
+  save();
+  render();
+  // 포커스
+  setTimeout(() => {
+    const first = document.querySelector('.memo .memo-content');
+    if (first) first.focus();
+  }, 50);
+}
+
+// 이벤트
+document.getElementById('btnAdd').addEventListener('click', addMemo);
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  if (memos.length && confirm('모든 메모를 삭제할까요?')) {
+    memos = [];
+    save();
+    render();
+  }
+});
+
+document.getElementById('searchBox').addEventListener('input', (e) => {
+  render(e.target.value);
+});
+
+// 키보드 단축키
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'n') {
+    e.preventDefault();
+    addMemo();
+  }
+});
+
+// 초기 렌더
+render();
+</script>
+</body>
+</html>

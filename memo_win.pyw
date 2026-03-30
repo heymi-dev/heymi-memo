@@ -1,4 +1,4 @@
-"""Ann's Memo - Windows 스티커 메모 스타일"""
+"""heymi memo - Windows 스티커 메모 스타일"""
 
 import tkinter as tk
 from tkinter import messagebox, font as tkfont
@@ -15,6 +15,23 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(SCRIPT_DIR, "memos.json")
 
 TEXT_COLOR = "#111827"
+SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settings.json")
+
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def save_settings(s):
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(s, f, ensure_ascii=False, indent=2)
+
+
+def get_app_name():
+    return load_settings().get("app_name", "heymi memo")
 FONT_SIZE = 10
 FONT_SIZE_SMALL = 8
 PLACEHOLDER = "메모를 작성하세요..."
@@ -513,7 +530,7 @@ def _ensure_icon():
     bundled = _get_resource_path("memo.ico")
     if os.path.exists(bundled):
         # 앱 데이터 폴더로 복사 (exe 내장은 임시경로라 재시작 시 경로 변경됨)
-        app_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "AnnMemo")
+        app_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "HeymiMemo")
         os.makedirs(app_dir, exist_ok=True)
         local_ico = os.path.join(app_dir, "memo.ico")
         if not os.path.exists(local_ico):
@@ -528,7 +545,7 @@ def _ensure_icon():
     try:
         from PIL import Image, ImageDraw
         import struct
-        app_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "AnnMemo")
+        app_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "HeymiMemo")
         os.makedirs(app_dir, exist_ok=True)
         ico_path = os.path.join(app_dir, "memo.ico")
         imgs = []
@@ -556,7 +573,7 @@ def _ensure_icon():
 class MemoManager:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Ann's Memo")
+        self.root.title(get_app_name())
         self.root.geometry("360x560")
         self.root.minsize(340, 400)
         self.root.configure(bg="#1E1E1E")
@@ -601,9 +618,11 @@ class MemoManager:
         top.pack(fill="x", padx=12, pady=(12, 4))
 
         tk.Label(
-            top, text="Ann's Memo", bg="#1E1E1E", fg="#FFE066",
-            font=(ff(), 14, "bold")
-        ).pack(side="left")
+            top, text=get_app_name(), bg="#1E1E1E", fg="#FFE066",
+            font=(ff(), 14, "bold"), cursor="hand2"
+        )
+        self.title_label.pack(side="left")
+        self.title_label.bind("<Double-Button-1>", lambda e: self._rename_app())
 
         self.count_label = tk.Label(
             top, text="", bg="#1E1E1E", fg="#888", font=(ff(), 10)
@@ -1002,6 +1021,32 @@ class MemoManager:
             w.save_geometry()
         save_memos(self.memos_data)
         self.root.after(10000, self._auto_save_loop)
+
+    def _rename_app(self):
+        """앱 이름 더블클릭으로 변경"""
+        current = get_app_name()
+        entry = tk.Entry(self.title_label.master, bg="#1E1E1E", fg="#FFE066",
+                         font=(ff(), 14, "bold"), bd=0, insertbackground="#FFE066",
+                         highlightthickness=1, highlightcolor="#FFE066")
+        entry.place(x=self.title_label.winfo_x(), y=self.title_label.winfo_y(),
+                    width=self.title_label.winfo_width() + 50, height=self.title_label.winfo_height())
+        entry.insert(0, current)
+        entry.select_range(0, "end")
+        entry.focus_set()
+
+        def save(event=None):
+            new_name = entry.get().strip()
+            if new_name:
+                s = load_settings()
+                s["app_name"] = new_name
+                save_settings(s)
+                self.title_label.config(text=new_name)
+                self.root.title(new_name)
+            entry.destroy()
+
+        entry.bind("<Return>", save)
+        entry.bind("<FocusOut>", save)
+        entry.bind("<Escape>", lambda e: entry.destroy())
 
     def _check_for_updates(self):
         """시작 시 GitHub에서 최신 버전 체크"""

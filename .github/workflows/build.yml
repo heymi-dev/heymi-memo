@@ -25,10 +25,10 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --onefile --windowed --name "AnnMemo" --icon memo.ico --add-data "version.py;." --add-data "updater.py;." --add-data "memo.ico;." memo_win.pyw
+          pyinstaller --onefile --windowed --name "HeymiMemo" --icon memo.ico --add-data "version.py;." --add-data "updater.py;." --add-data "memo.ico;." memo_win.pyw
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/AnnMemo.exe
+          files: dist/HeymiMemo.exe
           generate_release_notes: true
