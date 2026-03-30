@@ -1,0 +1,11 @@
+memos.json
+color_labels.json
+color_order.json
+memo.ico
+*.pyc
+__pycache__/
+dist/
+build/
+*.spec
+venv/
+*.exe
