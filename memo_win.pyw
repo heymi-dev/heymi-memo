@@ -496,6 +496,62 @@ class MemoWindow:
             pass
 
 
+def _get_resource_path(filename):
+    """PyInstaller exe 내장 리소스 또는 스크립트 폴더에서 파일 경로 반환"""
+    if getattr(sys, 'frozen', False):
+        # exe로 실행 중 — _MEIPASS에서 찾기
+        base = sys._MEIPASS
+    else:
+        base = SCRIPT_DIR
+    return os.path.join(base, filename)
+
+
+def _ensure_icon():
+    """아이콘 파일 찾기/생성. 반환: ico 경로 또는 None"""
+    import tempfile
+    # 1. exe 내장 리소스
+    bundled = _get_resource_path("memo.ico")
+    if os.path.exists(bundled):
+        # 앱 데이터 폴더로 복사 (exe 내장은 임시경로라 재시작 시 경로 변경됨)
+        app_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "AnnMemo")
+        os.makedirs(app_dir, exist_ok=True)
+        local_ico = os.path.join(app_dir, "memo.ico")
+        if not os.path.exists(local_ico):
+            import shutil
+            shutil.copy2(bundled, local_ico)
+        return local_ico
+    # 2. 스크립트 폴더
+    local = os.path.join(SCRIPT_DIR, "memo.ico")
+    if os.path.exists(local):
+        return local
+    # 3. 런타임에 생성
+    try:
+        from PIL import Image, ImageDraw
+        import struct
+        app_dir = os.path.join(os.environ.get("LOCALAPPDATA", tempfile.gettempdir()), "AnnMemo")
+        os.makedirs(app_dir, exist_ok=True)
+        ico_path = os.path.join(app_dir, "memo.ico")
+        imgs = []
+        for sz in [256, 64, 32, 16]:
+            img = Image.new("RGBA", (sz, sz), (0, 0, 0, 0))
+            d = ImageDraw.Draw(img)
+            pad = sz // 16
+            r = sz // 8
+            body = [pad, pad + sz//10, sz - pad, sz - pad]
+            d.rounded_rectangle(body, radius=r, fill=(255, 225, 80, 255))
+            fold_h = sz // 10
+            d.rounded_rectangle([pad, pad, sz-pad, pad+fold_h+r], radius=r, fill=(255, 210, 50, 255))
+            d.rectangle([pad, pad+fold_h, sz-pad, pad+fold_h+r], fill=(255, 210, 50, 255))
+            pin_r = max(2, sz // 12)
+            pin_cx, pin_cy = pad + sz//8, pad + sz//16
+            d.ellipse([pin_cx-pin_r, pin_cy-pin_r, pin_cx+pin_r, pin_cy+pin_r], fill=(230, 70, 70, 230))
+            imgs.append(img)
+        imgs[0].save(ico_path, format="ICO", sizes=[(s, s) for s in [256, 64, 32, 16]], append_images=imgs[1:])
+        return ico_path
+    except Exception:
+        return None
+
+
 # ── 메인 관리 창 ──
 class MemoManager:
     def __init__(self):
@@ -505,12 +561,12 @@ class MemoManager:
         self.root.minsize(340, 400)
         self.root.configure(bg="#1E1E1E")
         # ICO 파일로 아이콘 설정 (작업표시줄 + 타이틀바)
-        ico_path = r"C:\Users\sp1\AnnMemo\memo.ico"
-        try:
-            self.root.iconbitmap(ico_path)
-            self._ico_path = ico_path
-        except Exception:
-            self._ico_path = None
+        self._ico_path = _ensure_icon()
+        if self._ico_path:
+            try:
+                self.root.iconbitmap(self._ico_path)
+            except Exception:
+                self._ico_path = None
 
         init_font(self.root)
 
