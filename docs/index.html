@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>heymi memo - Windows 포스트잇 메모앱</title>
+<title>heymi memo</title>
+<meta name="description" content="Sticky notes for your desktop. Pin, color, organize.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'Pretendard', -apple-system, sans-serif;
-    background: #0D0D0D;
-    color: #E0E0E0;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e5e5e5;
     min-height: 100vh;
   }
 
@@ -29,7 +29,7 @@
     border-radius: 16px;
     margin: 0 auto 32px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 32px rgba(255, 224, 102, 0.25);
+    box-shadow: 0 8px 32px rgba(167, 139, 250, 0.25);
     position: relative;
   }
 
@@ -45,18 +45,13 @@
 
   .hero-icon .lines {
     margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: flex-start;
-    padding-left: 20px;
+    display: flex; flex-direction: column;
+    gap: 6px; align-items: flex-start; padding-left: 20px;
   }
 
   .hero-icon .lines span {
-    height: 3px;
-    background: rgba(120, 100, 60, 0.35);
-    border-radius: 2px;
-    display: block;
+    height: 3px; background: rgba(255,255,255,0.2);
+    border-radius: 2px; display: block;
   }
 
   .hero-icon .lines span:nth-child(1) { width: 44px; }
@@ -64,62 +59,39 @@
   .hero-icon .lines span:nth-child(3) { width: 28px; }
 
   h1 {
-    font-size: 48px;
-    font-weight: 800;
+    font-size: 48px; font-weight: 800;
     color: #A78BFA;
-    margin-bottom: 16px;
-    letter-spacing: -1px;
+    margin-bottom: 16px; letter-spacing: -1px;
   }
 
   .subtitle {
-    font-size: 20px;
-    color: #999;
-    margin-bottom: 40px;
-    line-height: 1.6;
+    font-size: 18px; color: #666;
+    margin-bottom: 40px; line-height: 1.6;
   }
 
   .download-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: #A78BFA;
-    color: #1A1A1A;
-    font-size: 18px;
-    font-weight: 700;
-    padding: 16px 40px;
-    border-radius: 12px;
-    text-decoration: none;
-    transition: all 0.2s;
-    box-shadow: 0 4px 20px rgba(255, 224, 102, 0.3);
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #A78BFA; color: #0a0a0a;
+    font-size: 18px; font-weight: 700;
+    padding: 16px 40px; border-radius: 12px;
+    text-decoration: none; transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(167, 139, 250, 0.3);
   }
 
   .download-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(255, 224, 102, 0.4);
+    box-shadow: 0 8px 32px rgba(167, 139, 250, 0.4);
     background: #9061F9;
   }
 
-  .download-btn svg {
-    width: 22px; height: 22px;
-  }
+  .download-btn svg { width: 22px; height: 22px; }
 
-  .version {
-    font-size: 14px;
-    color: #666;
-    margin-top: 12px;
-  }
-
-  .version a {
-    color: #888;
-    text-decoration: none;
-  }
-
+  .version { font-size: 14px; color: #666; margin-top: 12px; }
+  .version a { color: #888; text-decoration: none; }
   .version a:hover { color: #A78BFA; }
 
-  /* Features */
   .features {
-    max-width: 900px;
-    margin: 60px auto;
+    max-width: 900px; margin: 60px auto;
     padding: 0 20px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -127,76 +99,38 @@
   }
 
   .feature {
-    background: #1A1A1A;
-    border-radius: 16px;
-    padding: 28px;
-    border: 1px solid #2A2A2A;
+    background: #111; border-radius: 16px;
+    padding: 28px; border: 1px solid #1a1a1a;
     transition: border-color 0.2s;
   }
 
   .feature:hover { border-color: #A78BFA; }
+  .feature-icon { font-size: 28px; margin-bottom: 14px; }
+  .feature h3 { font-size: 16px; font-weight: 700; color: #FFF; margin-bottom: 8px; }
+  .feature p { font-size: 14px; color: #888; line-height: 1.6; }
 
-  .feature-icon {
-    font-size: 28px;
-    margin-bottom: 14px;
-  }
+  .colors-section { text-align: center; padding: 40px 20px; }
+  .colors-section h2 { font-size: 24px; font-weight: 700; color: #FFF; margin-bottom: 24px; }
 
-  .feature h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #FFF;
-    margin-bottom: 8px;
-  }
-
-  .feature p {
-    font-size: 14px;
-    color: #888;
-    line-height: 1.6;
-  }
-
-  /* Colors preview */
-  .colors-section {
-    text-align: center;
-    padding: 40px 20px;
-  }
-
-  .colors-section h2 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #FFF;
-    margin-bottom: 24px;
-  }
-
-  .color-dots {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
+  .color-dots { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
 
   .color-dot {
-    width: 40px; height: 40px;
-    border-radius: 10px;
+    width: 40px; height: 40px; border-radius: 10px;
     border: 2px solid rgba(255,255,255,0.1);
     transition: transform 0.2s;
   }
 
   .color-dot:hover { transform: scale(1.2); }
 
-  /* Footer */
   .footer {
-    text-align: center;
-    padding: 40px 20px;
-    color: #555;
-    font-size: 13px;
-    border-top: 1px solid #1A1A1A;
-    margin-top: 40px;
+    text-align: center; padding: 40px 20px;
+    color: #555; font-size: 13px;
+    border-top: 1px solid #1a1a1a; margin-top: 40px;
   }
 
   .footer a { color: #888; text-decoration: none; }
   .footer a:hover { color: #A78BFA; }
 
-  /* Responsive */
   @media (max-width: 600px) {
     h1 { font-size: 32px; }
     .subtitle { font-size: 16px; }
@@ -217,83 +151,82 @@
 
   <h1>heymi memo</h1>
   <p class="subtitle">
-    바탕화면에 붙이는 포스트잇 메모앱<br>
-    가볍고, 예쁘고, 자동 업데이트
+    Sticky notes for your desktop.<br>
+    Light, beautiful, auto-updating.
   </p>
 
-  <a id="downloadBtn" class="download-btn" href="https://github.com/heymi-dev/heymi-memo/releases/latest/download/AnnMemo.exe">
+  <a id="downloadBtn" class="download-btn" href="https://github.com/heymi-dev/heymi-memo/releases/latest/download/HeymiMemo.exe">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-8 4v-2h16v2H4z"/></svg>
-    다운로드 (Windows)
+    Download (Windows)
   </a>
 
   <p class="version">
-    <span id="versionText">v1.0.0</span> &middot; Windows 10/11 &middot;
-    <a href="https://github.com/heymi-dev/heymi-memo/releases">모든 버전</a>
+    <span id="versionText">v1.1.0</span> &middot; Windows 10/11 &middot;
+    <a href="https://github.com/heymi-dev/heymi-memo/releases">All versions</a>
   </p>
 </div>
 
 <div class="features">
   <div class="feature">
     <div class="feature-icon">🎨</div>
-    <h3>8가지 색상 테마</h3>
-    <p>노랑, 핑크, 초록, 파랑, 보라, 주황, 흰색, 블랙 — 용도별로 구분</p>
+    <h3>8 Color Themes</h3>
+    <p>Yellow, pink, green, blue, purple, orange, white, black — organize by color.</p>
   </div>
 
   <div class="feature">
     <div class="feature-icon">📌</div>
-    <h3>맨 위 고정</h3>
-    <p>중요한 메모는 항상 다른 창 위에 표시</p>
+    <h3>Always on Top</h3>
+    <p>Pin important notes above all other windows.</p>
   </div>
 
   <div class="feature">
     <div class="feature-icon">✏️</div>
-    <h3>서식 지원</h3>
-    <p>볼드, 글머리 기호, 번호 목록 — 깔끔하게 정리</p>
+    <h3>Formatting</h3>
+    <p>Bold, bullet points, numbered lists — keep it clean.</p>
   </div>
 
   <div class="feature">
     <div class="feature-icon">🔄</div>
-    <h3>자동 업데이트</h3>
-    <p>새 버전이 나오면 앱에서 바로 알려줌</p>
+    <h3>Auto Update</h3>
+    <p>Get notified when a new version is available.</p>
   </div>
 
   <div class="feature">
     <div class="feature-icon">💾</div>
-    <h3>자동 저장</h3>
-    <p>10초마다 자동 저장 — 갑자기 꺼져도 안전</p>
+    <h3>Auto Save</h3>
+    <p>Saves every 10 seconds. Never lose your notes.</p>
   </div>
 
   <div class="feature">
     <div class="feature-icon">🗂️</div>
-    <h3>색상별 그룹 관리</h3>
-    <p>그룹 이름 변경, 순서 드래그, 접기/펼치기</p>
+    <h3>Color Groups</h3>
+    <p>Rename, reorder, collapse. Organize your way.</p>
   </div>
 </div>
 
 <div class="colors-section">
-  <h2>내 스타일로 꾸미기</h2>
+  <h2>Make it yours</h2>
   <div class="color-dots">
-    <div class="color-dot" style="background:#FFF9B1" title="노랑"></div>
-    <div class="color-dot" style="background:#FFD1DC" title="핑크"></div>
-    <div class="color-dot" style="background:#D4EDBC" title="초록"></div>
-    <div class="color-dot" style="background:#D0E8FF" title="파랑"></div>
-    <div class="color-dot" style="background:#E8D5F5" title="보라"></div>
-    <div class="color-dot" style="background:#FFE0B2" title="주황"></div>
-    <div class="color-dot" style="background:#F5F5F5" title="흰색"></div>
-    <div class="color-dot" style="background:#2C2C2C; border-color:#444" title="블랙"></div>
+    <div class="color-dot" style="background:#FFF9B1" title="Yellow"></div>
+    <div class="color-dot" style="background:#FFD1DC" title="Pink"></div>
+    <div class="color-dot" style="background:#D4EDBC" title="Green"></div>
+    <div class="color-dot" style="background:#D0E8FF" title="Blue"></div>
+    <div class="color-dot" style="background:#E8D5F5" title="Purple"></div>
+    <div class="color-dot" style="background:#FFE0B2" title="Orange"></div>
+    <div class="color-dot" style="background:#F5F5F5" title="White"></div>
+    <div class="color-dot" style="background:#2C2C2C; border-color:#444" title="Black"></div>
   </div>
 </div>
 
 <div class="footer">
   <p>
-    Made by <a href="https://github.com/heymi-dev">heymi</a> &middot;
+    Made by <a href="https://heymi-dev.netlify.app">heymi</a> &middot;
     <a href="https://github.com/heymi-dev/heymi-memo">GitHub</a> &middot;
-    Python 없이 실행 가능 (exe 단일 파일)
+    No Python needed. Single exe file.
   </p>
 </div>
 
 <script>
-// GitHub API에서 최신 버전 가져오기
 fetch('https://api.github.com/repos/heymi-dev/heymi-memo/releases/latest')
   .then(r => r.json())
   .then(data => {
