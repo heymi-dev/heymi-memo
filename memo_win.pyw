@@ -742,7 +742,27 @@ class MemoManager:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title(get_app_name())
-        self.root.geometry("360x560")
+        # 화면 오른쪽 끝 + 하단 (작업표시줄 위) + 항상 맨 위
+        rw, rh = 360, 560
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        try:
+            from ctypes import wintypes
+            class APPBARDATA(ctypes.Structure):
+                _fields_ = [("cbSize", ctypes.c_uint), ("hWnd", ctypes.c_void_p),
+                            ("uCallbackMessage", ctypes.c_uint), ("uEdge", ctypes.c_uint),
+                            ("rc", wintypes.RECT), ("lParam", ctypes.c_long)]
+            abd = APPBARDATA()
+            abd.cbSize = ctypes.sizeof(APPBARDATA)
+            ctypes.windll.shell32.SHAppBarMessage(5, ctypes.byref(abd))
+            tb = abd.rc.bottom - abd.rc.top
+            if tb < 20: tb = 48
+        except Exception:
+            tb = 48
+        self.root.geometry(f"{rw}x{rh}+{screen_w - rw}+{screen_h - rh - tb}")
+        # 처음에만 맨 위로 올리고 바로 해제
+        self.root.attributes("-topmost", True)
+        self.root.after(100, lambda: self.root.attributes("-topmost", False))
         self.root.minsize(340, 200)
         self.root.configure(bg="#1E1E1E")
         # ICO 파일로 아이콘 설정 (작업표시줄 + 타이틀바)
@@ -798,43 +818,53 @@ class MemoManager:
         )
         self.count_label.pack(side="left", padx=(10, 0))
 
-        self.btn_toggle_all = tk.Label(
-            top, text="▼", bg="#1E1E1E", fg="#888",
-            font=(ff(), 9, "bold"), cursor="hand2", padx=6
-        )
-        self.btn_toggle_all.pack(side="left", padx=(6, 0))
-        self.btn_toggle_all.bind("<Button-1>", lambda e: self._toggle_all_groups())
+        # 메인창 아이콘 로드
+        self._main_icons = {}
+        try:
+            from PIL import Image as PILImage, ImageTk
+            icon_dir = _get_resource_path("icons") if getattr(sys, 'frozen', False) else os.path.join(SCRIPT_DIR, "icons")
+            for name in ["eye", "grid", "clear", "toggle_all", "plus"]:
+                try:
+                    pil_img = PILImage.open(os.path.join(icon_dir, f"{name}.png")).resize((20, 20), PILImage.LANCZOS)
+                    self._main_icons[name] = ImageTk.PhotoImage(pil_img)
+                except Exception:
+                    self._main_icons[name] = None
+        except ImportError:
+            pass
 
+        def main_icon(name, fallback, **kw):
+            ico = self._main_icons.get(name)
+            if ico:
+                return tk.Label(top, image=ico, bg="#1E1E1E", cursor="hand2", padx=3, **kw)
+            return tk.Label(top, text=fallback, bg="#1E1E1E", fg="#888", font=(ff(), 10), cursor="hand2", padx=3, **kw)
+
+        # + 새 메모
         tk.Button(
             top, text="+", bg="#A78BFA", fg="#0a0a0a",
-            font=(ff(), 12, "bold"), bd=0, padx=10, pady=2,
+            font=(ff(), 11, "bold"), bd=0, padx=8, pady=2,
             cursor="hand2", activebackground="#9061F9",
             command=self.new_memo
         ).pack(side="right")
 
-        # 정렬 버튼
-        self.btn_arrange = tk.Label(
-            top, text="▦", bg="#1E1E1E", fg="#888",
-            font=(ff(), 12), cursor="hand2", padx=6
-        )
-        self.btn_arrange.pack(side="right", padx=(0, 4))
+        # 오른쪽 아이콘: 휴지통 → 눈 → 정렬 → 토글 (pack side=right는 역순)
+        ICO_PAD = 6
+
+        self.btn_clear = main_icon("clear", "🗑")
+        self.btn_clear.pack(side="right", padx=(ICO_PAD, ICO_PAD))
+        self.btn_clear.bind("<Button-1>", lambda e: self.clear_empty_memos())
+
+        self._memos_visible = True
+        self.btn_eye = main_icon("eye", "👁")
+        self.btn_eye.pack(side="right", padx=ICO_PAD)
+        self.btn_eye.bind("<Button-1>", lambda e: self.toggle_all_memos())
+
+        self.btn_arrange = main_icon("grid", "▦")
+        self.btn_arrange.pack(side="right", padx=ICO_PAD)
         self.btn_arrange.bind("<Button-1>", lambda e: self.arrange_memos())
 
-        # 빈 메모 일괄 삭제 버튼
-        try:
-            from PIL import Image as PILImage, ImageTk
-            icon_dir = _get_resource_path("icons") if getattr(sys, 'frozen', False) else os.path.join(SCRIPT_DIR, "icons")
-            pil_img = PILImage.open(os.path.join(icon_dir, "clear.png")).resize((16, 16), PILImage.LANCZOS)
-            self._clear_icon = ImageTk.PhotoImage(pil_img)
-            self.btn_clear = tk.Label(
-                top, image=self._clear_icon, bg="#1E1E1E", cursor="hand2", padx=4
-            )
-        except Exception:
-            self.btn_clear = tk.Label(
-                top, text="⊠", bg="#1E1E1E", fg="#888", font=(ff(), 10), cursor="hand2", padx=4
-            )
-        self.btn_clear.pack(side="right", padx=(0, 2))
-        self.btn_clear.bind("<Button-1>", lambda e: self.clear_empty_memos())
+        self.btn_toggle_all = main_icon("toggle_all", "▼")
+        self.btn_toggle_all.pack(side="right", padx=ICO_PAD)
+        self.btn_toggle_all.bind("<Button-1>", lambda e: self._toggle_all_groups())
 
         sf = tk.Frame(self.root, bg="#1E1E1E")
         sf.pack(fill="x", padx=12, pady=(4, 8))
@@ -867,10 +897,11 @@ class MemoManager:
         footer = tk.Frame(self.root, bg="#1E1E1E")
         footer.pack(fill="x", side="bottom")
         self.btn_update = tk.Label(
-            footer, text=f"v{VERSION}", bg="#1E1E1E", fg="#555",
-            font=(ff(), 8), padx=8, pady=4
+            footer, text=f"v{VERSION}", bg="#1E1E1E", fg="#444",
+            font=(ff(), 7), padx=8, pady=4, cursor="hand2"
         )
         self.btn_update.pack(side="left")
+        self.btn_update.bind("<Button-1>", lambda e: self._on_version_click())
 
     def schedule_save(self):
         if not self._save_pending:
@@ -1061,30 +1092,37 @@ class MemoManager:
                     return
 
     def _inline_edit(self, hdr, label, color_name):
-        """라벨 위치에 Entry를 덮어씌워 인라인 편집"""
+        """라벨 위에 Entry를 정확히 덮어씌워 인라인 편집"""
         c = COLORS[color_name]
         current = self._color_labels.get(color_name, c["name"])
 
-        entry = tk.Entry(hdr, bg=c["header"], fg=label.cget("fg"),
-                         font=(ff(), 9, "bold"), bd=0, insertbackground=label.cget("fg"),
-                         highlightthickness=1, highlightcolor="#FFE066")
-        entry.place(x=label.winfo_x(), y=label.winfo_y(),
-                    width=label.winfo_width(), height=label.winfo_height())
-        entry.insert(0, current)
-        entry.select_range(0, "end")
+        hdr_fg = "#E0E0E0" if color_name == "black" else TEXT_COLOR
+        # 모든 자식 숨기기
+        children = list(hdr.winfo_children())
+        for ch in children:
+            ch.pack_forget()
+
+        entry = tk.Text(hdr, bg=c["header"], fg=hdr_fg,
+                        font=(ff(), 9, "bold"), bd=0, insertbackground=hdr_fg,
+                        highlightthickness=0, height=1, width=20, wrap="none")
+        entry.pack(fill="x", padx=8, pady=3)
+        entry.insert("1.0", current)
+        entry.tag_add("sel", "1.0", "end")
         entry.focus_set()
 
         def save(event=None):
-            new_name = entry.get().strip()
+            new_name = entry.get("1.0", "end-1c").strip()
             if new_name:
                 self._color_labels[color_name] = new_name
                 self._save_color_labels()
-            entry.destroy()
             self.refresh_list()
 
-        entry.bind("<Return>", save)
+        def on_return(event):
+            save()
+            return "break"  # 줄바꿈 방지
+        entry.bind("<Return>", on_return)
         entry.bind("<FocusOut>", save)
-        entry.bind("<Escape>", lambda e: (entry.destroy(), self.refresh_list()))
+        entry.bind("<Escape>", lambda e: self.refresh_list())
 
     def _save_color_labels(self):
         path = os.path.join(SCRIPT_DIR, "color_labels.json")
@@ -1252,6 +1290,22 @@ class MemoManager:
         entry.bind("<FocusOut>", save)
         entry.bind("<Escape>", lambda e: entry.destroy())
 
+    def toggle_all_memos(self):
+        """모든 메모 창 일괄 열기/닫기 토글"""
+        if self._memos_visible:
+            # 숨기기
+            for w in self.memo_windows.values():
+                w.win.withdraw()
+            self._memos_visible = False
+            self.btn_eye.config(fg="#444")
+        else:
+            # 열기
+            for w in self.memo_windows.values():
+                w.win.deiconify()
+                w.win.lift()
+            self._memos_visible = True
+            self.btn_eye.config(fg="#888")
+
     def clear_empty_memos(self):
         """텍스트가 비어있는 메모 일괄 삭제"""
         empty = [d for d in self.memos_data if not d.get("text", "").strip()]
@@ -1350,6 +1404,14 @@ class MemoManager:
             w.save_geometry()
 
         self.schedule_save()
+
+    def _on_version_click(self):
+        """버전 클릭 시 — 업데이트 있으면 업데이트, 없으면 최신 안내"""
+        info = getattr(self, '_update_info', None)
+        if info:
+            self._do_update()
+        else:
+            messagebox.showinfo("heymi memo", f"v{VERSION} is the latest version.")
 
     def _check_for_updates(self):
         """시작 시 GitHub에서 최신 버전 체크"""
