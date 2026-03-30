@@ -617,7 +617,7 @@ class MemoManager:
         top = tk.Frame(self.root, bg="#1E1E1E")
         top.pack(fill="x", padx=12, pady=(12, 4))
 
-        tk.Label(
+        self.title_label = tk.Label(
             top, text=get_app_name(), bg="#1E1E1E", fg="#FFE066",
             font=(ff(), 14, "bold"), cursor="hand2"
         )
