@@ -23,12 +23,16 @@ jobs:
       - name: Create icon
         run: python create_icon.py
 
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+
       - name: Build exe
         run: |
-          pyinstaller --onefile --windowed --name "HeymiMemo" --icon memo.ico --add-data "version.py;." --add-data "updater.py;." --add-data "memo.ico;." memo_win.pyw
+          pyinstaller --onefile --windowed --name "HeymiMemo_${{ steps.version.outputs.VERSION }}" --icon memo.ico --add-data "version.py;." --add-data "updater.py;." --add-data "memo.ico;." memo_win.pyw
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/HeymiMemo.exe
+          files: dist/HeymiMemo_${{ steps.version.outputs.VERSION }}.exe
           generate_release_notes: true
