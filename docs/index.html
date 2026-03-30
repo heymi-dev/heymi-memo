@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ann's Memo - Windows 포스트잇 메모앱</title>
+<title>heymi memo - Windows 포스트잇 메모앱</title>
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
@@ -215,20 +215,20 @@
     </div>
   </div>
 
-  <h1>Ann's Memo</h1>
+  <h1>heymi memo</h1>
   <p class="subtitle">
     바탕화면에 붙이는 포스트잇 메모앱<br>
     가볍고, 예쁘고, 자동 업데이트
   </p>
 
-  <a id="downloadBtn" class="download-btn" href="https://github.com/kimsooim/Ann-memo/releases/latest/download/AnnMemo.exe">
+  <a id="downloadBtn" class="download-btn" href="https://github.com/heymi-dev/heymi-memo/releases/latest/download/AnnMemo.exe">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-8 4v-2h16v2H4z"/></svg>
     다운로드 (Windows)
   </a>
 
   <p class="version">
     <span id="versionText">v1.0.0</span> &middot; Windows 10/11 &middot;
-    <a href="https://github.com/kimsooim/Ann-memo/releases">모든 버전</a>
+    <a href="https://github.com/heymi-dev/heymi-memo/releases">모든 버전</a>
   </p>
 </div>
 
@@ -286,15 +286,15 @@
 
 <div class="footer">
   <p>
-    Made by <a href="https://github.com/kimsooim">ann</a> &middot;
-    <a href="https://github.com/kimsooim/Ann-memo">GitHub</a> &middot;
+    Made by <a href="https://github.com/heymi-dev">heymi</a> &middot;
+    <a href="https://github.com/heymi-dev/heymi-memo">GitHub</a> &middot;
     Python 없이 실행 가능 (exe 단일 파일)
   </p>
 </div>
 
 <script>
 // GitHub API에서 최신 버전 가져오기
-fetch('https://api.github.com/repos/kimsooim/Ann-memo/releases/latest')
+fetch('https://api.github.com/repos/heymi-dev/heymi-memo/releases/latest')
   .then(r => r.json())
   .then(data => {
     if (data.tag_name) {
