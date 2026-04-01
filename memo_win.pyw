@@ -1,11 +1,20 @@
 """heymi memo - Windows 스티커 메모 스타일"""
 
+import ctypes
+# DPI awareness 먼저 설정 (tkinter import 전!)
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
 import tkinter as tk
 from tkinter import messagebox, font as tkfont
 import json
 import os
 import sys
-import ctypes
 from datetime import datetime
 from version import VERSION
 from updater import check_update_async, download_and_replace
@@ -13,6 +22,12 @@ from updater import check_update_async, download_and_replace
 # ── 설정 ──
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(SCRIPT_DIR, "memos.json")
+DEBUG_LOG = os.path.join(SCRIPT_DIR, "debug.log")
+
+
+def _debug_log(msg):
+    with open(DEBUG_LOG, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}\n")
 
 TEXT_COLOR = "#111827"
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settings.json")
@@ -372,9 +387,16 @@ class MemoWindow:
         y = self.data.get("y", 200)
         w = self.data.get("w", 300)
         h = self.data.get("h", 300)
-        sw = self.win.winfo_screenwidth()
-        sh = self.win.winfo_screenheight()
-        if x < -50 or x > sw - 50 or y < -50 or y > sh - 50:
+        try:
+            vx = ctypes.windll.user32.GetSystemMetrics(76)
+            vy = ctypes.windll.user32.GetSystemMetrics(77)
+            vw = ctypes.windll.user32.GetSystemMetrics(78)
+            vh = ctypes.windll.user32.GetSystemMetrics(79)
+        except Exception:
+            vx, vy = 0, 0
+            vw = self.win.winfo_screenwidth()
+            vh = self.win.winfo_screenheight()
+        if x < vx - 50 or x > vx + vw - 50 or y < vy - 50 or y > vy + vh - 50:
             x, y = 200, 200
         self.win.geometry(f"{w}x{h}+{x}+{y}")
         self.win.attributes("-alpha", self.data.get("alpha", 1.0))
@@ -740,26 +762,48 @@ def _ensure_icon():
 # ── 메인 관리 창 ──
 class MemoManager:
     def __init__(self):
+        # 디버그 로그 초기화
+        with open(DEBUG_LOG, "w", encoding="utf-8") as f:
+            f.write(f"=== heymi memo start {datetime.now()} ===\n")
+
         self.root = tk.Tk()
         self.root.title(get_app_name())
-        # 화면 오른쪽 끝 + 하단 (작업표시줄 위) + 항상 맨 위
+        # 마지막 위치 복원 또는 기본값 (오른쪽 하단)
+        s = load_settings()
         rw, rh = 360, 560
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        try:
-            from ctypes import wintypes
-            class APPBARDATA(ctypes.Structure):
-                _fields_ = [("cbSize", ctypes.c_uint), ("hWnd", ctypes.c_void_p),
-                            ("uCallbackMessage", ctypes.c_uint), ("uEdge", ctypes.c_uint),
-                            ("rc", wintypes.RECT), ("lParam", ctypes.c_long)]
-            abd = APPBARDATA()
-            abd.cbSize = ctypes.sizeof(APPBARDATA)
-            ctypes.windll.shell32.SHAppBarMessage(5, ctypes.byref(abd))
-            tb = abd.rc.bottom - abd.rc.top
-            if tb < 20: tb = 48
-        except Exception:
-            tb = 48
-        self.root.geometry(f"{rw}x{rh}+{screen_w - rw}+{screen_h - rh - tb}")
+        if "main_x" in s:
+            # 저장된 위치가 유효한 모니터 안에 있는지 확인
+            sx, sy = s["main_x"], s["main_y"]
+            sw = s.get("main_w", rw)
+            sh = s.get("main_h", rh)
+            try:
+                vx = ctypes.windll.user32.GetSystemMetrics(76)  # SM_XVIRTUALSCREEN
+                vy = ctypes.windll.user32.GetSystemMetrics(77)
+                vw = ctypes.windll.user32.GetSystemMetrics(78)  # SM_CXVIRTUALSCREEN
+                vh = ctypes.windll.user32.GetSystemMetrics(79)
+                if vx - 50 <= sx < vx + vw - 50 and vy - 50 <= sy < vy + vh - 50:
+                    self.root.geometry(f"{sw}x{sh}+{sx}+{sy}")
+                else:
+                    raise ValueError("out of bounds")
+            except Exception:
+                self.root.geometry(f"{sw}x{sh}+{sx}+{sy}")
+        else:
+            screen_w = self.root.winfo_screenwidth()
+            screen_h = self.root.winfo_screenheight()
+            try:
+                from ctypes import wintypes
+                class APPBARDATA(ctypes.Structure):
+                    _fields_ = [("cbSize", ctypes.c_uint), ("hWnd", ctypes.c_void_p),
+                                ("uCallbackMessage", ctypes.c_uint), ("uEdge", ctypes.c_uint),
+                                ("rc", wintypes.RECT), ("lParam", ctypes.c_long)]
+                abd = APPBARDATA()
+                abd.cbSize = ctypes.sizeof(APPBARDATA)
+                ctypes.windll.shell32.SHAppBarMessage(5, ctypes.byref(abd))
+                tb = abd.rc.bottom - abd.rc.top
+                if tb < 20: tb = 48
+            except Exception:
+                tb = 48
+            self.root.geometry(f"{rw}x{rh}+{screen_w - rw}+{screen_h - rh - tb}")
         # 처음에만 맨 위로 올리고 바로 해제
         self.root.attributes("-topmost", True)
         self.root.after(100, lambda: self.root.attributes("-topmost", False))
@@ -786,6 +830,7 @@ class MemoManager:
         self.setup_ui()
         self.root.update_idletasks()
         self._dark_titlebar_root()
+        _debug_log(f"init: main at ({self.root.winfo_x()},{self.root.winfo_y()}) {self.root.winfo_width()}x{self.root.winfo_height()}")
         self.open_visible_memos()
         self.refresh_list()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -974,6 +1019,10 @@ class MemoManager:
         for d in self.memos_data:
             if d.get("visible"):
                 self.open_memo_window(d)
+        # 마지막에 정렬 상태였으면 자동 정렬
+        s = load_settings()
+        if s.get("last_arranged"):
+            self.root.after(300, self.arrange_memos)
 
     def on_memo_hidden(self, mid):
         self.memo_windows.pop(mid, None)
@@ -1006,13 +1055,17 @@ class MemoManager:
             cn = d.get("color", "yellow")
             groups.setdefault(cn, []).append(d)
 
-        # 그룹 내에서 고정 메모가 맨 위로 (pinned=0이 먼저, 수정일 최신순)
+        # 그룹 내 정렬: 고정 먼저, sort_order 있으면 사용, 없으면 수정일 역순
         for cn in groups:
-            groups[cn].sort(key=lambda m: (0 if m.get("pinned") else 1, "9" if not m.get("modified") else m.get("modified")))
-            # 고정 먼저, 그 다음 수정일 역순
             pinned_items = [m for m in groups[cn] if m.get("pinned")]
             other_items = [m for m in groups[cn] if not m.get("pinned")]
-            other_items.sort(key=lambda m: m.get("modified", ""), reverse=True)
+            # sort_order가 있으면 그 순서 사용
+            has_order = any("sort_order" in m for m in groups[cn])
+            if has_order:
+                pinned_items.sort(key=lambda m: m.get("sort_order", 9999))
+                other_items.sort(key=lambda m: m.get("sort_order", 9999))
+            else:
+                other_items.sort(key=lambda m: m.get("modified", ""), reverse=True)
             groups[cn] = pinned_items + other_items
 
         count = len(filtered)
@@ -1210,11 +1263,21 @@ class MemoManager:
 
         card = tk.Frame(self.cards_frame, bg=c["bg"], cursor="hand2")
         card.pack(fill="x", pady=3)
+        card._memo_data = data
+        card._memo_color = cn
+
+        # 드래그 핸들 (왼쪽)
+        card_fg = "#E0E0E0" if cn == "black" else TEXT_COLOR
+        grip = tk.Label(card, text="⠿", bg=c["bg"], fg="#999",
+            font=(ff(), 10), cursor="fleur", padx=2)
+        grip.pack(side="left", padx=(4, 0))
+        grip.bind("<Button-1>", lambda e, d=data, cd=card: self._memo_drag_start(e, d, cd))
+        grip.bind("<B1-Motion>", self._memo_drag_motion)
+        grip.bind("<ButtonRelease-1>", self._memo_drag_end)
 
         ct = tk.Frame(card, bg=c["bg"], padx=10, pady=6)
         ct.pack(side="left", fill="both", expand=True)
 
-        card_fg = "#E0E0E0" if cn == "black" else TEXT_COLOR
         tk.Label(ct, text=("📌 " if pinned else "")+preview,
             bg=c["bg"], fg=card_fg,
             font=(ff(), 10, "bold" if pinned else "normal"),
@@ -1236,10 +1299,54 @@ class MemoManager:
         del_btn.pack(side="right")
         del_btn.bind("<Button-1>", lambda e, d=data: self._delete_card(d))
 
-        for w in card.winfo_children():
+        for w in [ct] + list(ct.winfo_children()):
             w.bind("<Button-1>", lambda e,d=data: self._click(d))
-            for ww in w.winfo_children():
-                ww.bind("<Button-1>", lambda e,d=data: self._click(d))
+
+    def _memo_drag_start(self, event, data, card):
+        """메모 카드 드래그 시작"""
+        self._dragging_memo = data
+        self._dragging_card = card
+        self._memo_drag_start_y = event.y_root
+
+    def _memo_drag_motion(self, event):
+        """메모 카드 드래그 중 — 같은 그룹 내 순서 교환"""
+        if not getattr(self, '_dragging_memo', None):
+            return
+        dy = event.y_root - self._memo_drag_start_y
+        if abs(dy) < 30:
+            return
+        direction = 1 if dy > 0 else -1
+        data = self._dragging_memo
+        cn = data.get("color", "yellow")
+
+        # 같은 색상 그룹의 메모들 (memos_data 내 순서 기준)
+        same_color = [m for m in self.memos_data if m.get("color", "yellow") == cn]
+        if data not in same_color:
+            return
+        idx = same_color.index(data)
+        new_idx = idx + direction
+        if new_idx < 0 or new_idx >= len(same_color):
+            return
+
+        # memos_data에서 실제 인덱스를 찾아서 교환
+        swap_data = same_color[new_idx]
+        real_idx = self.memos_data.index(data)
+        real_swap = self.memos_data.index(swap_data)
+        self.memos_data[real_idx], self.memos_data[real_swap] = \
+            self.memos_data[real_swap], self.memos_data[real_idx]
+
+        # 순서 기억 (sort_order)
+        for i, m in enumerate(self.memos_data):
+            m["sort_order"] = i
+
+        self._memo_drag_start_y = event.y_root
+        self._do_save()
+        self.refresh_list()
+
+    def _memo_drag_end(self, event):
+        """메모 카드 드래그 끝"""
+        self._dragging_memo = None
+        self._dragging_card = None
 
     def _delete_card(self, data):
         if messagebox.askyesno("메모 삭제", "이 메모를 삭제할까요?"):
@@ -1323,8 +1430,55 @@ class MemoManager:
         self._do_save()
         self.refresh_list()
 
+    def _get_frame_borders(self):
+        """DWM 윈도우 프레임 테두리 크기 측정 (left, top, right, bottom)"""
+        try:
+            import ctypes.wintypes
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            rect = ctypes.wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            frame_w = (rect.right - rect.left) - self.root.winfo_width()
+            frame_h = (rect.bottom - rect.top) - self.root.winfo_height()
+            # 좌우 대칭, 상하는 타이틀바+하단보더
+            lr = frame_w // 2  # 좌우 각각
+            bottom = lr  # 하단 보더 = 좌우 보더와 동일
+            top = frame_h - bottom  # 나머지 = 타이틀바
+            _debug_log(f"frame borders: lr={lr} top={top} bottom={bottom} (frame {frame_w}x{frame_h})")
+            return (lr, top, lr, bottom)
+        except Exception:
+            return (8, 31, 8, 8)
+
+    def _get_work_area(self):
+        """메인창이 있는 모니터의 작업영역 (x, y, w, h) 반환 — 태스크바+프레임 제외"""
+        try:
+            import ctypes.wintypes
+
+            class MONITORINFO(ctypes.Structure):
+                _fields_ = [
+                    ('cbSize', ctypes.c_uint),
+                    ('rcMonitor', ctypes.wintypes.RECT),
+                    ('rcWork', ctypes.wintypes.RECT),
+                    ('dwFlags', ctypes.c_uint),
+                ]
+
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            hmon = ctypes.windll.user32.MonitorFromWindow(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+            mi = MONITORINFO()
+            mi.cbSize = ctypes.sizeof(MONITORINFO)
+            ctypes.windll.user32.GetMonitorInfoW(hmon, ctypes.byref(mi))
+            w = mi.rcWork
+            # 프레임이 오른쪽+아래로 삐져나오므로 그만큼만 줄임
+            bl, bt, br, bb = self._get_frame_borders()
+            frame_extra_w = bl + br  # 16px — 오른쪽에서만 뺌
+            return (w.left, w.top, w.right - w.left - frame_extra_w, w.bottom - w.top - bb)
+        except Exception as e:
+            _debug_log(f"monitor detect failed: {e}")
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            return (0, 0, sw - 16, sh - 56)
+
     def arrange_memos(self):
-        """열린 메모들을 메인창이 있는 모니터에 2행 그리드로 꽉 차게 정렬"""
+        """메인창 먼저 배치 → 나머지 공간에 메모 폭 맞춰 정렬"""
         visible = [(w.data.get("color", "yellow"), w)
                    for w in self.memo_windows.values()
                    if w.win.winfo_viewable()]
@@ -1336,72 +1490,68 @@ class MemoManager:
         visible.sort(key=lambda x: color_order.index(x[0]) if x[0] in color_order else 99)
         memos = [w for _, w in visible]
 
-        # 메인창이 있는 모니터 감지
-        try:
-            monitors = []
-            def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
-                import ctypes.wintypes
-                rect = lprcMonitor[0]
-                monitors.append((rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top))
-                return 1
-            MONITORENUMPROC = ctypes.WINFUNCTYPE(
-                ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong,
-                ctypes.POINTER(ctypes.wintypes.RECT), ctypes.c_double)
-            ctypes.windll.user32.EnumDisplayMonitors(0, 0, MONITORENUMPROC(callback), 0)
+        # 1) 메인창이 있는 모니터의 작업영역 (태스크바 제외)
+        self.root.update_idletasks()
+        work_x, work_y, work_w, work_h = self._get_work_area()
 
-            main_cx = self.root.winfo_x() + self.root.winfo_width() // 2
-            main_cy = self.root.winfo_y() + self.root.winfo_height() // 2
-
-            # 메인창 중심이 있는 모니터 찾기
-            mon = None
-            for mx, my, mw, mh in monitors:
-                if mx <= main_cx < mx + mw and my <= main_cy < my + mh:
-                    mon = (mx, my, mw, mh)
-                    break
-            if not mon:
-                mon = monitors[0] if monitors else (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
-        except Exception:
-            mon = (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
-
-        mon_x, mon_y, mon_w, mon_h = mon
-        # 작업표시줄 높이 자동 감지
-        try:
-            from ctypes import wintypes
-            class APPBARDATA(ctypes.Structure):
-                _fields_ = [("cbSize", ctypes.c_uint), ("hWnd", ctypes.c_void_p),
-                            ("uCallbackMessage", ctypes.c_uint), ("uEdge", ctypes.c_uint),
-                            ("rc", wintypes.RECT), ("lParam", ctypes.c_long)]
-            abd = APPBARDATA()
-            abd.cbSize = ctypes.sizeof(APPBARDATA)
-            ctypes.windll.shell32.SHAppBarMessage(5, ctypes.byref(abd))  # ABM_GETTASKBARPOS
-            taskbar = abd.rc.bottom - abd.rc.top
-            if taskbar < 20:
-                taskbar = 48
-        except Exception:
-            taskbar = 48
-
-        # 2행 — 타이틀바 높이 고려해서 겹침 방지
         rows = 2
-        cols = (len(memos) + rows - 1) // rows
+        main_w = 340  # minsize와 동일
+        cell_h = work_h // rows
+
         try:
             caption_h = ctypes.windll.user32.GetSystemMetrics(4)
             border_h = ctypes.windll.user32.GetSystemMetrics(33)
-            frame_h = caption_h + border_h + 4  # 타이틀바 프레임 전체
+            frame_h = caption_h + border_h + 4
         except Exception:
             frame_h = 31
-        total_h = mon_h - taskbar
-        # 전체 높이 = (memo_h + frame_h) * 2 = total_h
-        memo_h = (total_h // rows) - frame_h
-        memo_w = mon_w // cols
+        memo_h = cell_h - frame_h
 
+        _debug_log(f"arrange: work_area=({work_x},{work_y},{work_w},{work_h}) memos={len(memos)}")
+
+        # 2) 메인창 먼저 배치 — 작업영역 오른쪽 하단
+        main_x = work_x + work_w - main_w
+        main_y = work_y + (rows - 1) * cell_h
+        self.root.geometry(f"{main_w}x{memo_h}+{main_x}+{main_y}")
+        self.root.update_idletasks()
+
+        try:
+            _hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            _rect = ctypes.wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(_hwnd, ctypes.byref(_rect))
+            _debug_log(f"  main: geo=({main_x},{main_y}) {main_w}x{memo_h} | ACTUAL=({_rect.left},{_rect.top},{_rect.right},{_rect.bottom})")
+        except Exception:
+            _debug_log(f"  main: geo=({main_x},{main_y}) {main_w}x{memo_h}")
+
+        # 3) 메모 영역 = 작업영역 왼쪽 ~ 메인창 왼쪽
+        memo_area_w = work_w - main_w
+        memo_cols = max(1, (len(memos) + rows - 1) // rows)
+        memo_w = memo_area_w // memo_cols
+
+        # 4) 메모 배치 (작업영역 안에서만!)
         for i, w in enumerate(memos):
-            row = i % rows
             col = i // rows
-            x = mon_x + col * memo_w
-            y = mon_y + row * (memo_h + frame_h)
+            row = i % rows
+            x = work_x + col * memo_w
+            y = work_y + row * cell_h
+            # 안전 클램핑
+            x = max(work_x, min(x, work_x + memo_area_w - memo_w))
+            y = max(work_y, min(y, work_y + work_h - memo_h))
             w.win.geometry(f"{memo_w}x{memo_h}+{x}+{y}")
+            w.win.update_idletasks()
+            # 실제 윈도우 위치 확인
+            try:
+                _hwnd = ctypes.windll.user32.GetParent(w.win.winfo_id())
+                _rect = ctypes.wintypes.RECT()
+                ctypes.windll.user32.GetWindowRect(_hwnd, ctypes.byref(_rect))
+                _debug_log(f"  memo {i}: geo=({x},{y}) {memo_w}x{memo_h} | ACTUAL=({_rect.left},{_rect.top},{_rect.right},{_rect.bottom})")
+            except Exception:
+                _debug_log(f"  memo {i}: geo=({x},{y}) {memo_w}x{memo_h}")
             w.save_geometry()
-            w.save_geometry()
+
+        # 정렬 상태 저장
+        s = load_settings()
+        s["last_arranged"] = True
+        save_settings(s)
 
         self.schedule_save()
 
@@ -1453,6 +1603,14 @@ class MemoManager:
         download_and_replace(info["exe_url"], on_progress)
 
     def on_close(self):
+        # 메인창 위치 저장
+        s = load_settings()
+        s["main_x"] = self.root.winfo_x()
+        s["main_y"] = self.root.winfo_y()
+        s["main_w"] = self.root.winfo_width()
+        s["main_h"] = self.root.winfo_height()
+        save_settings(s)
+
         for w in list(self.memo_windows.values()):
             w.destroy()
         save_memos(self.memos_data)
